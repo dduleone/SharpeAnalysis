@@ -150,11 +150,14 @@ if(Util::getStockCount()){
 
 	$symbols = Util::getSymbolArray();
 	$capitals = Util::getCapitalArray();
-	$total_capital = 0;
-	foreach($capitals as $capital){
-		$total_capital += $capital;
-	}
+	$total_capital = array_sum($capitals);
 
+
+	/* I could combine these loops since count($capitals) should always == count($symbols) == count($stocks).
+		But the point of the exercise was to understand the process, not write efficient code.
+		And I believe over simplication would detract from the clarity of what's happening.
+		Besides, these arrays are only supposed to be 4 elements long.
+	*/
 	$weights = array();
 	foreach($capitals as $i => $capital){
 		$weights[$i] = $capital/$total_capital;
