@@ -7,7 +7,6 @@
 
 */
 ?><!DOCTYPE html><?php
-//http://ichart.finance.yahoo.com/table.csv?a=00&b=1&c=2011&d=11&e=31&f=2011&g=d&ignore=.csv&s=NKE
 
 define("STOCK_COUNT", 4);
 define("YEAR", 2011);
@@ -68,50 +67,35 @@ class Util{
 	}
 
 	static function prettyPercent($raw, $precision = 2){
-		$rounded = round($raw, $precision+2) * 100;
+		$rounded = round(trim($raw), $precision+2) * 100;
 		return sprintf("%.".$precision."f%%", $rounded);
 	}
 
 	static function prettyMoney($raw, $precision = 2){
-		$rounded = number_format($raw, $precision);
+		$rounded = number_format(trim($raw), $precision);
 		return sprintf("$%s", $rounded);
+	}
+
+	static function prettyDate($raw, $format = "M-d", $convert = true){
+		if($convert){
+			$raw = strtotime($raw);
+		}
+		return date($format, $raw);
 	}
 
 	static function cleanData($col, $value){
 		switch($col){
-			case self::COL_DATE:
-				$value = date("M-d",strtotime($value));
-			break;
-			case self::COL_OPEN:
-				$value = self::prettyMoney($value);
-			break;
-			case self::COL_HIGH:
-				$value = self::prettyMoney($value);
-			break;
-			case self::COL_LOW:
-				$value = self::prettyMoney($value);
-			break;
-			case self::COL_CLOSE:
-				$value = self::prettyMoney($value);
-			break;
-			case self::COL_ADJ_CLOSE:
-				$value = self::prettyMoney($value);
-			break;
-			case self::COL_CUM:
-				$value = self::prettyPercent($value);
-			break;
-			case self::COL_VALUE:
-				$value = self::prettyMoney($value);
-			break;
-			case self::COL_FUND_SUM:
-				$value = self::prettyMoney($value);
-			break;
-			case self::COL_FUND_CUM:
-				$value = self::prettyPercent($value);
-			break;
-			case self::COL_FUND_DAILY:
-				$value = self::prettyPercent($value,3);
-			break;
+			case self::COL_DATE:		$value = self::prettyDate($value, "M-d");	break;
+			case self::COL_OPEN:		$value = self::prettyMoney($value); 		break;
+			case self::COL_HIGH:		$value = self::prettyMoney($value);			break;
+			case self::COL_LOW:			$value = self::prettyMoney($value);			break;
+			case self::COL_CLOSE:		$value = self::prettyMoney($value);			break;
+			case self::COL_ADJ_CLOSE:	$value = self::prettyMoney($value);			break;
+			case self::COL_CUM:			$value = self::prettyPercent($value);		break;
+			case self::COL_VALUE:		$value = self::prettyMoney($value);			break;
+			case self::COL_FUND_SUM:	$value = self::prettyMoney($value);			break;
+			case self::COL_FUND_CUM:	$value = self::prettyPercent($value);		break;
+			case self::COL_FUND_DAILY:	$value = self::prettyPercent($value,3);		break;
 			default:
 			break;
 		}
@@ -140,6 +124,17 @@ class Util{
 		$buf .= "</tr>";
 		return $buf;
 	}
+
+	// Borrowed From: http://forums.phpfreaks.com/topic/253594-standard-deviation/
+	static function standard_deviation($aValues, $bSample = false) {
+	    $fMean = array_sum($aValues) / count($aValues);
+	    $fVariance = 0.0;
+	    foreach ($aValues as $i) {
+	        $fVariance += pow($i - $fMean, 2);
+	    }
+	    $fVariance /= ( $bSample ? count($aValues) - 1 : count($aValues) );
+	    return (float) sqrt($fVariance);
+	}
 }
 
 $print_cols = array();
@@ -158,6 +153,11 @@ if(Util::getStockCount()){
 	$total_capital = 0;
 	foreach($capitals as $capital){
 		$total_capital += $capital;
+	}
+
+	$weights = array();
+	foreach($capitals as $i => $capital){
+		$weights[$i] = $capital/$total_capital;
 	}
 
 	$stocks = array();
@@ -181,6 +181,10 @@ if(Util::getStockCount()){
 <html>
 	<head>
 		<title>Stock Analyzer</title>
+		<style>
+		table{float: left;}
+		form table{float: none;}
+		</style>
 	</head>
 	<body>
 		<div id='input_form'>
@@ -216,6 +220,7 @@ if(Util::getStockCount()){
 			echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
 			echo Util::printDatTableHeaders($print_cols, $symbols);
 			$yesterdays_roi = false;
+			$daily_deltas = array();
 			foreach($stocks[0] as $index => $row){
 				echo "<tr>";
 				echo "<th class='date'>" . Util::cleanData(Util::COL_DATE, $row[Util::COL_DATE]) . "</th>";
@@ -223,19 +228,46 @@ if(Util::getStockCount()){
 				for($i = 0; $i < Util::getStockCount(); $i++){
 					$fund_sum += $stocks[$i][$index][Util::COL_VALUE];
 					foreach($print_cols as $col => $name){
-						echo "<td>" . Util::cleanData($col, $stocks[$i][$index][$col]) . "</td>";
+						printf("<td>%s</td>", Util::cleanData($col, $stocks[$i][$index][$col]));
 					}
 				}
 				$daily_roi = $fund_sum / $total_capital;
 				$yesterdays_roi = ($yesterdays_roi===false) ? $daily_roi : $yesterdays_roi;
 				$daily_delta = $daily_roi - $yesterdays_roi;
-				echo "<td>" . Util::cleanData(Util::COL_FUND_SUM, $fund_sum) . "</td>";
-				echo "<td>" . Util::cleanData(Util::COL_FUND_CUM, $daily_roi) . "</td>";
-				echo "<td>" . Util::cleanData(Util::COL_FUND_DAILY, $daily_delta) . "</td>";
+				$daily_deltas[] = $daily_delta;
+				printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_SUM, $fund_sum));
+				printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_CUM, $daily_roi));
+				printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_DAILY, $daily_delta));
 				echo "</tr>\n";
 				$yesterdays_roi = $daily_roi;
 			}
-			echo "</table>";
+			$annual_return = 0;
+			foreach($stocks as $i => $stock){
+				$first = array_shift($stock);
+				$first = $first[Util::COL_CUM];
+				$last = array_pop($stock);
+				$last = $last[Util::COL_CUM];
+				$annual_return += (($last - $first) * $weights[$i]);
+			}
+			echo "</table>\n";
+			echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
+			echo "<tr><th>Stocks</th><th>Alloc</th><th>Capital</th></tr>\n";
+			printf("<tr><th>Start</th><td>1</td><td>%s</td></tr>", Util::prettyMoney($total_capital));
+			foreach($symbols as $i => $symbol){
+				printf("<tr><th>%s</th><td>%s</td><td>%s</td></tr>\n", strtoupper($symbol), $capitals[$i] / $total_capital, Util::prettyMoney($capitals[$i]));
+			}
+			echo "</table>\n";
+
+			$average_daily_return = array_sum($daily_deltas) / count($daily_deltas);
+			$std_dev = Util::standard_deviation($daily_deltas);
+			$sharpe = sqrt(count($daily_deltas)) * $average_daily_return / $std_dev;			
+			echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
+			echo "<tr><th>Performance</th><th>Fund</th></tr>\n";
+			printf("<tr><td>Annual Return</td><td>%s</td></tr>\n", Util::prettyPercent($annual_return));
+			printf("<tr><td>Average Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($average_daily_return, 3));
+			printf("<tr><td>STDEV Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($std_dev, 3));
+			printf("<tr><td>Sharpe Ratio</td><td>%s</td></tr>\n", round($sharpe, 3));
+			echo "</table>\n";
 		}
 ?>
 		</div>
