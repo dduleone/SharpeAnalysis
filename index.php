@@ -1,12 +1,19 @@
-<?php
+<?php 
+/* 
+	Step 1: Write Stock Analysis Tool
+	Step 2: Use Tool to Analyze Stocks
+	Step 3: ?????
+	Step 4: Profit
+
+*/
+?><!DOCTYPE html><?php
 //http://ichart.finance.yahoo.com/table.csv?a=00&b=1&c=2011&d=11&e=31&f=2011&g=d&ignore=.csv&s=NKE
 
-
 define("STOCK_COUNT", 4);
+define("YEAR", 2011);
+define("REMOTE_URL", "http://ichart.finance.yahoo.com/table.csv?a=00&b=1&c=2011&d=11&e=31&f=" . YEAR . "&g=d&ignore=.csv&s=%s");
 
 class Util{
-
-	const REMOTE_URL = "http://ichart.finance.yahoo.com/table.csv?a=00&b=1&c=2011&d=11&e=31&f=2011&g=d&ignore=.csv&s=%s";
 
 	const COL_DATE = 0;
 	const COL_OPEN = 1;
@@ -17,6 +24,9 @@ class Util{
 	const COL_ADJ_CLOSE = 6;
 	const COL_CUM = 7;
 	const COL_VALUE = 8;
+	const COL_FUND_SUM = 9;
+	const COL_FUND_CUM = 10;
+	const COL_FUND_DAILY = 11;
 
 
 	static function getGet($var, $index = null){
@@ -24,7 +34,7 @@ class Util{
 	}
 
 	static function generateUrl($symbol){
-		return sprintf(self::REMOTE_URL, $symbol);
+		return sprintf(REMOTE_URL, $symbol);
 	}
 
 	static function getStockCount(){
@@ -57,29 +67,32 @@ class Util{
 		return array_reverse($rows);
 	}
 
-	static function prettyPercent($raw){
-		$rounded = round($raw, 4) * 100;
-		return sprintf("%.2f%%", $rounded);
+	static function prettyPercent($raw, $precision = 2){
+		$rounded = round($raw, $precision+2) * 100;
+		return sprintf("%.".$precision."f%%", $rounded);
 	}
 
-	static function prettyMoney($raw){
-		$rounded = number_format($raw, 2);
+	static function prettyMoney($raw, $precision = 2){
+		$rounded = number_format($raw, $precision);
 		return sprintf("$%s", $rounded);
 	}
 
 	static function cleanData($col, $value){
 		switch($col){
 			case self::COL_DATE:
+				$value = date("M-d",strtotime($value));
 			break;
 			case self::COL_OPEN:
+				$value = self::prettyMoney($value);
 			break;
 			case self::COL_HIGH:
+				$value = self::prettyMoney($value);
 			break;
 			case self::COL_LOW:
+				$value = self::prettyMoney($value);
 			break;
 			case self::COL_CLOSE:
-			break;
-			case self::COL_VOLUME:
+				$value = self::prettyMoney($value);
 			break;
 			case self::COL_ADJ_CLOSE:
 				$value = self::prettyMoney($value);
@@ -90,16 +103,48 @@ class Util{
 			case self::COL_VALUE:
 				$value = self::prettyMoney($value);
 			break;
+			case self::COL_FUND_SUM:
+				$value = self::prettyMoney($value);
+			break;
+			case self::COL_FUND_CUM:
+				$value = self::prettyPercent($value);
+			break;
+			case self::COL_FUND_DAILY:
+				$value = self::prettyPercent($value,3);
+			break;
 			default:
 			break;
 		}
 		return $value;
 	}
+
+	static function printDatTableHeaders($print_cols, $symbols){
+		$buf = "";
+		$buf .= "<tr>";
+		$buf .= "<th class='year_heading'>".YEAR."</th>";
+		for($i = 0; $i < self::getStockCount(); $i++){
+			$buf .= sprintf("<th colspan='%s'>%s</th>\n", count($print_cols), strtoupper($symbols[$i]));
+		}
+		$buf .= "<th colspan='3'>Fund Totals</th>\n";
+		$buf .= "</tr>";
+		$buf .= "<tr>";
+		$buf .= "<th>Date</th>";
+		for($i = 0; $i < Util::getStockCount(); $i++){
+			foreach($print_cols as $name){
+				$buf .= sprintf("<th>%s</th>", $name);
+			}
+		}
+		$buf .= "<th>Fund Value</th>";
+		$buf .= "<th>Fund RoI</th>";
+		$buf .= "<th>Fund Delta</th>";
+		$buf .= "</tr>";
+		return $buf;
+	}
 }
 
 $print_cols = array();
 $print_cols[Util::COL_ADJ_CLOSE] = "Adj Close";
-$print_cols[Util::COL_CUM] = "Cum %";
+$print_cols[Util::COL_CUM] = "RoI";
 $print_cols[Util::COL_VALUE] = "Daily Value";
 
 
@@ -110,6 +155,10 @@ if(Util::getStockCount()){
 
 	$symbols = Util::getSymbolArray();
 	$capitals = Util::getCapitalArray();
+	$total_capital = 0;
+	foreach($capitals as $capital){
+		$total_capital += $capital;
+	}
 
 	$stocks = array();
 	foreach($symbols as $i => $symbol){
@@ -128,7 +177,7 @@ if(Util::getStockCount()){
 		}
 	}
 }
-?><!DOCTYPE html>
+?>
 <html>
 	<head>
 		<title>Stock Analyzer</title>
@@ -137,57 +186,56 @@ if(Util::getStockCount()){
 		<div id='input_form'>
 			<form action='?' method='get'>
 				<input type='hidden' name='stockcount' value='<?php echo STOCK_COUNT; ?>' />
-<?php
-					for($i = 0; $i < STOCK_COUNT; $i++){
-?>
-						<div class='stock'>
-							<h3>Stock <?php echo $i; ?></h3>
-							<label>Enter Symbol: </label><input type='text' name='symbol[]' class='symbol' value='<?php echo Util::getGet('symbol', $i); ?>' /><br />
-							<label>Enter Investment: </label><input type='text' name='capital[]' class='capital' value='<?php echo Util::getGet('capital', $i); ?>' /><br />
-						</div>
-<?php
-					} 
-?>
-				<input type='submit' value='go' />
+				<table cellpadding='2' cellspacing='2' border='1'>
+					<tr>
+						<th>&nbsp;</th>
+						<?php 
+						for($i = 0; $i < STOCK_COUNT; $i++){printf("<th>Stock %s</th>", $i+1);}
+						?>
+					</tr>
+					<tr>
+						<th>Enter Symbol:</th>
+						<?php
+						for($i = 0; $i < STOCK_COUNT; $i++){printf("<td><input type='text' name='symbol[]' class='symbol' value='%s' /></td>", Util::getGet('symbol', $i));}
+						?>
+					</tr>						
+					<tr>
+						<th>Enter Investment:</th>
+						<?php
+						for($i = 0; $i < STOCK_COUNT; $i++){printf("<td><input type='text' name='capital[]' class='capital' value='%s' /></td>", Util::getGet('capital', $i));}
+						?>
+					</tr>
+				</table>
+				<input type='submit' value='Generate Report' />
 			</form>
 		</div>
+		<hr />
 		<div id='results'>
 <?php 
 		if(Util::getStockCount()){
-?>
-			<table cellpadding='2' cellspacing='2' border='1'>
-			<tr>
-				<th class='blank'>&nbsp;</th>
-<?php
-			for($i = 0; $i < Util::getStockCount(); $i++){
-				echo "<th colspan='".count($print_cols)."'>" . strtoupper($symbols[$i]) . "</th>\n";
-			}
-?>
-				</tr>
-				<tr>
-					<th>Date</th>
-<?php
-					foreach($stocks as $count){
-						foreach($print_cols as $col => $name){
-							echo "<th>".$name."</th>";
-						}
-					}
-?>
-				</tr>
-<?php
+			echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
+			echo Util::printDatTableHeaders($print_cols, $symbols);
+			$yesterdays_roi = false;
 			foreach($stocks[0] as $index => $row){
 				echo "<tr>";
-				echo "<th class='date'>" . $row[Util::COL_DATE] . "</th>";
+				echo "<th class='date'>" . Util::cleanData(Util::COL_DATE, $row[Util::COL_DATE]) . "</th>";
+				$fund_sum = 0;
 				for($i = 0; $i < Util::getStockCount(); $i++){
+					$fund_sum += $stocks[$i][$index][Util::COL_VALUE];
 					foreach($print_cols as $col => $name){
 						echo "<td>" . Util::cleanData($col, $stocks[$i][$index][$col]) . "</td>";
 					}
 				}
+				$daily_roi = $fund_sum / $total_capital;
+				$yesterdays_roi = ($yesterdays_roi===false) ? $daily_roi : $yesterdays_roi;
+				$daily_delta = $daily_roi - $yesterdays_roi;
+				echo "<td>" . Util::cleanData(Util::COL_FUND_SUM, $fund_sum) . "</td>";
+				echo "<td>" . Util::cleanData(Util::COL_FUND_CUM, $daily_roi) . "</td>";
+				echo "<td>" . Util::cleanData(Util::COL_FUND_DAILY, $daily_delta) . "</td>";
 				echo "</tr>\n";
+				$yesterdays_roi = $daily_roi;
 			}
-?>
-			</table>
-<?php
+			echo "</table>";
 		}
 ?>
 		</div>
