@@ -17,8 +17,8 @@ TODO (This list is not prioritized)
  - I want to build a solver to get the maximum Sharpe Ratio
  - I want to improve the HTML table output (Proper DOM compliance)
  - I want to make the interface "prettier"
+ - For fun, I want to integrate the option to use Google Finance
 */
-
 
 require_once("YahooFinance.php");
 
@@ -48,10 +48,6 @@ class Util{
 		return (isset($_GET[$var])) ? ( ((is_array($_GET[$var])) && ($index!==null)) ? $_GET[$var][$index] : $_GET[$var] ) : "";
 	}
 
-	static function generateUrl($symbol){
-		return sprintf(REMOTE_URL, $symbol);
-	}
-
 	static function getStockCount(){
 		return (isset($_GET['stockcount'])) ? $_GET['stockcount'] : false;
 	}
@@ -72,14 +68,6 @@ class Util{
 	static function getCapitalCount(){
 		$ary = self::getCapitalArray();
 		return ($ary !== false) ? count($ary) : 0;
-	}
-
-	static function buildRows($handle){
-		$rows = array();
-		while($row = fgetcsv($handle)){
-			$rows[] = $row;
-		}
-		return array_reverse($rows);
 	}
 
 	static function prettyPercent($raw, $precision = 2){
@@ -160,6 +148,9 @@ $print_cols[Util::COL_VALUE] = "Daily Value";
 
 
 if(Util::getStockCount()){
+
+	$yf = new YahooFinance();
+
 	if(Util::getSymbolCount() != Util::getCapitalCount()){
 		echo "<h1 class='error'>Error! Number of Stock Symbols (".Util::getSymbolCount().") does not match number of Investment Capital Values (".Util::getCapitalCount().").</h1>";
 	}
@@ -175,15 +166,13 @@ if(Util::getStockCount()){
 		Besides, these arrays are only supposed to be 4 elements long.
 	*/
 	$weights = array();
-	foreach($capitals as $i => $capital){
-		$weights[$i] = $capital/$total_capital;
+	foreach($capitals as $capital){
+		$weights[] = $capital/$total_capital;
 	}
 
 	$stocks = array();
-	foreach($symbols as $i => $symbol){
-		$data_handle = fopen(Util::generateUrl($symbol), 'r');
-		$headers = fgetcsv($data_handle);
-		$stocks[] = Util::buildRows($data_handle);
+	foreach($symbols as $ticker_symbol){
+		$stocks[] = $yf->fetchStockData($ticker_symbol);
 	}
 
 	foreach($stocks as $i => $stock){
@@ -196,6 +185,9 @@ if(Util::getStockCount()){
 		}
 	}
 }
+
+
+
 ?>
 <html>
 	<head>
