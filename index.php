@@ -6,6 +6,19 @@
 	Step 4: Profit
 
 */
+
+/**
+TODO (This list is not prioritized)
+ - I want to separate the information layer from the display layer
+ - I want to add tooltips which show the formulas for each record
+ - I want to show stdev & average daily return broken up by stock
+ - I want to make the daily data collapsable
+ - I want to be able to update the investment values and update the page via JS, if the stocklist doesn't change
+ - I want to build a solver to get the maximum Sharpe Ratio
+ - I want to improve the HTML table output (Proper DOM compliance)
+ - I want to make the interface "prettier"
+*/
+
 ?><!DOCTYPE html><?php
 
 define("STOCK_COUNT", 4);
@@ -102,7 +115,7 @@ class Util{
 		return $value;
 	}
 
-	static function printDatTableHeaders($print_cols, $symbols){
+	static function printDataTableHeaders($print_cols, $symbols){
 		$buf = "";
 		$buf .= "<tr>";
 		$buf .= "<th class='year_heading'>".YEAR."</th>";
@@ -194,24 +207,26 @@ if(Util::getStockCount()){
 			<form action='?' method='get'>
 				<input type='hidden' name='stockcount' value='<?php echo STOCK_COUNT; ?>' />
 				<table cellpadding='2' cellspacing='2' border='1'>
-					<tr>
-						<th>&nbsp;</th>
-						<?php 
-						for($i = 0; $i < STOCK_COUNT; $i++){printf("<th>Stock %s</th>", $i+1);}
-						?>
-					</tr>
-					<tr>
-						<th>Enter Symbol:</th>
-						<?php
-						for($i = 0; $i < STOCK_COUNT; $i++){printf("<td><input type='text' name='symbol[]' class='symbol' value='%s' /></td>", Util::getGet('symbol', $i));}
-						?>
-					</tr>						
-					<tr>
-						<th>Enter Investment:</th>
-						<?php
-						for($i = 0; $i < STOCK_COUNT; $i++){printf("<td><input type='text' name='capital[]' class='capital' value='%s' /></td>", Util::getGet('capital', $i));}
-						?>
-					</tr>
+					<tbody>
+						<tr>
+							<th>&nbsp;</th>
+							<?php 
+							for($i = 0; $i < STOCK_COUNT; $i++){printf("<th>Stock %s</th>", $i+1);}
+							?>
+						</tr>
+						<tr>
+							<th>Enter Symbol:</th>
+							<?php
+							for($i = 0; $i < STOCK_COUNT; $i++){printf("<td><input type='text' name='symbol[]' class='symbol' value='%s' /></td>", Util::getGet('symbol', $i));}
+							?>
+						</tr>						
+						<tr>
+							<th>Enter Investment:</th>
+							<?php
+							for($i = 0; $i < STOCK_COUNT; $i++){printf("<td><input type='text' name='capital[]' class='capital' value='%s' /></td>", Util::getGet('capital', $i));}
+							?>
+						</tr>
+					</tbody>					
 				</table>
 				<input type='submit' value='Generate Report' />
 			</form>
@@ -221,7 +236,7 @@ if(Util::getStockCount()){
 <?php 
 		if(Util::getStockCount()){
 			echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
-			echo Util::printDatTableHeaders($print_cols, $symbols);
+			echo Util::printDataTableHeaders($print_cols, $symbols);
 			$yesterdays_roi = false;
 			$daily_deltas = array();
 			foreach($stocks[0] as $index => $row){
