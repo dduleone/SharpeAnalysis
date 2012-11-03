@@ -19,11 +19,14 @@ TODO (This list is not prioritized)
  - I want to make the interface "prettier"
 */
 
+
+require_once("YahooFinance.php");
+
 ?><!DOCTYPE html><?php
 
 define("STOCK_COUNT", 4);
 define("YEAR", 2011);
-define("REMOTE_URL", "http://ichart.finance.yahoo.com/table.csv?a=00&b=1&c=2011&d=11&e=31&f=" . YEAR . "&g=d&ignore=.csv&s=%s");
+define("REMOTE_URL", "http://ichart.finance.yahoo.com/table.csv?a=00&b=1&c=" . YEAR . "&d=11&e=31&f=" . YEAR . "&g=d&ignore=.csv&s=%s");
 
 class Util{
 
