@@ -8,9 +8,10 @@
 */
 
 /**
-TODO (This list is not prioritized)
+TODO: (This list is not prioritized)
 
- - I want to separate the information layer from the display layer
+ - I want to pass the stock data as JSON and let the browser render the tables.
+
  - I want to add tooltips which show the formulas for each record
  - I want to show stdev & average daily return broken up by stock
  - I want to make the daily data collapsable

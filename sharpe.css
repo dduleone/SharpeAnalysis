@@ -1,0 +1,21 @@
+table{
+	float: left;
+}
+form table{
+	float: none;
+}
+.th_col{
+	font-weight: bold;
+}
+th,.th_col{
+	background: #ccc;
+}
+*{
+	font-family: monospace;
+}
+td,th{
+	border: 1px black solid;
+}
+table{
+	border-collapse: collapse;
+}
