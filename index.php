@@ -18,6 +18,9 @@ TODO (This list is not prioritized)
  - I want to improve the HTML table output (Proper DOM compliance)
  - I want to make the interface "prettier"
  - For fun, I want to integrate the option to use Google Finance
+ - I need to figure out how to check if a stock symbol is invlaid
+ - I need to figure out how to handle if unable to pull data
+ - I need to figure out how to handle when there's not enough historical data for one or more of the stocks
 */
 
 require_once("YahooFinance.php");
@@ -26,7 +29,6 @@ require_once("YahooFinance.php");
 
 define("STOCK_COUNT", 4);
 define("YEAR", 2011);
-define("REMOTE_URL", "http://ichart.finance.yahoo.com/table.csv?a=00&b=1&c=" . YEAR . "&d=11&e=31&f=" . YEAR . "&g=d&ignore=.csv&s=%s");
 
 class Util{
 
@@ -108,6 +110,7 @@ class Util{
 
 	static function printDataTableHeaders($print_cols, $symbols){
 		$buf = "";
+		$buf .= "<thead>";
 		$buf .= "<tr>";
 		$buf .= "<th class='year_heading'>".YEAR."</th>";
 		for($i = 0; $i < self::getStockCount(); $i++){
@@ -126,6 +129,7 @@ class Util{
 		$buf .= "<th>Fund RoI</th>";
 		$buf .= "<th>Fund Delta</th>";
 		$buf .= "</tr>";
+		$buf .= "</thead>";
 		return $buf;
 	}
 
@@ -149,7 +153,7 @@ $print_cols[Util::COL_VALUE] = "Daily Value";
 
 if(Util::getStockCount()){
 
-	$yf = new YahooFinance();
+	$yf = new YahooFinance(array('start_year' => YEAR, 'end_year' => YEAR));
 
 	if(Util::getSymbolCount() != Util::getCapitalCount()){
 		echo "<h1 class='error'>Error! Number of Stock Symbols (".Util::getSymbolCount().") does not match number of Investment Capital Values (".Util::getCapitalCount().").</h1>";
@@ -187,6 +191,32 @@ if(Util::getStockCount()){
 }
 
 
+function getInputHeaders(){
+	echo "<tr>";
+	echo "<th>&nbsp;</th>";
+	for($i = 0; $i < STOCK_COUNT; $i++){
+		printf("<th>Stock %s</th>", $i+1);
+	}
+	echo "</tr>";
+}
+
+function getTickerSymbolInputs(){
+	echo "<tr>";
+	echo "<th>Enter Symbol:</th>";
+	for($i = 0; $i < STOCK_COUNT; $i++){
+		printf("<td><input type='text' name='symbol[]' class='symbol' value='%s' /></td>", Util::getGet('symbol', $i));
+	}
+	echo "</tr>";
+}
+
+function getInvestmentCapitalInputs(){
+	echo "<tr>";
+	echo "<th>Enter Investment:</th>";
+	for($i = 0; $i < STOCK_COUNT; $i++){
+		printf("<td><input type='text' name='capital[]' class='capital' value='%s' /></td>", Util::getGet('capital', $i));
+	}
+	echo "</tr>";
+}
 
 ?>
 <html>
@@ -201,27 +231,13 @@ if(Util::getStockCount()){
 		<div id='input_form'>
 			<form action='?' method='get'>
 				<input type='hidden' name='stockcount' value='<?php echo STOCK_COUNT; ?>' />
-				<table cellpadding='2' cellspacing='2' border='1'>
-					<tbody>
-						<tr>
-							<th>&nbsp;</th>
-							<?php 
-							for($i = 0; $i < STOCK_COUNT; $i++){printf("<th>Stock %s</th>", $i+1);}
-							?>
-						</tr>
-						<tr>
-							<th>Enter Symbol:</th>
-							<?php
-							for($i = 0; $i < STOCK_COUNT; $i++){printf("<td><input type='text' name='symbol[]' class='symbol' value='%s' /></td>", Util::getGet('symbol', $i));}
-							?>
-						</tr>						
-						<tr>
-							<th>Enter Investment:</th>
-							<?php
-							for($i = 0; $i < STOCK_COUNT; $i++){printf("<td><input type='text' name='capital[]' class='capital' value='%s' /></td>", Util::getGet('capital', $i));}
-							?>
-						</tr>
-					</tbody>					
+				<table cellpadding='2' cellspacing='2' border='1' id='form_input'>
+					<tbody><?php
+						getInputHeaders();
+						getTickerSymbolInputs();
+						getInvestmentCapitalInputs();
+					?>
+					</tbody>
 				</table>
 				<input type='submit' value='Generate Report' />
 			</form>
@@ -230,8 +246,9 @@ if(Util::getStockCount()){
 		<div id='results'>
 <?php 
 		if(Util::getStockCount()){
-			echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
+			echo "<table cellpadding='2' cellspacing='2' border='1' id='all_results'>\n";
 			echo Util::printDataTableHeaders($print_cols, $symbols);
+			echo "<tbody>\n";
 			$yesterdays_roi = false;
 			$daily_deltas = array();
 			foreach($stocks[0] as $index => $row){
@@ -262,24 +279,29 @@ if(Util::getStockCount()){
 				$last = $last[Util::COL_CUM];
 				$annual_return += (($last - $first) * $weights[$i]);
 			}
+			echo "</tbody>\n";			
 			echo "</table>\n";
 			echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
-			echo "<tr><th>Stocks</th><th>Alloc</th><th>Capital</th></tr>\n";
+			echo "<thead><tr><th>Stocks</th><th>Alloc</th><th>Capital</th></tr></thead>\n";
+			echo "<tbody>\n";
 			printf("<tr><th>Start</th><td>1</td><td>%s</td></tr>", Util::prettyMoney($total_capital));
 			foreach($symbols as $i => $symbol){
 				printf("<tr><th>%s</th><td>%s</td><td>%s</td></tr>\n", strtoupper($symbol), $capitals[$i] / $total_capital, Util::prettyMoney($capitals[$i]));
 			}
+			echo "</tbody>\n";
 			echo "</table>\n";
 
 			$average_daily_return = array_sum($daily_deltas) / count($daily_deltas);
 			$std_dev = Util::standard_deviation($daily_deltas);
-			$sharpe = sqrt(count($daily_deltas)) * $average_daily_return / $std_dev;			
+			$sharpe = sqrt(count($daily_deltas)) * $average_daily_return / $std_dev;
 			echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
-			echo "<tr><th>Performance</th><th>Fund</th></tr>\n";
+			echo "<thead><tr><th>Performance</th><th>Fund</th></tr></thead>\n";
+			echo "<tbody>\n";
 			printf("<tr><td>Annual Return</td><td>%s</td></tr>\n", Util::prettyPercent($annual_return));
 			printf("<tr><td>Average Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($average_daily_return, 3));
 			printf("<tr><td>STDEV Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($std_dev, 3));
 			printf("<tr><td>Sharpe Ratio</td><td>%s</td></tr>\n", round($sharpe, 3));
+			echo "</tbody>\n";
 			echo "</table>\n";
 		}
 ?>

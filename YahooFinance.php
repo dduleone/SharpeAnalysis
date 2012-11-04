@@ -8,7 +8,7 @@ class YahooFinance extends FinanceProvider{
 
 	//"http://ichart.finance.yahoo.com/table.csv?a=00&b=1&c=2011&d=11&e=31&f=2011&g=d&ignore=.csv&s=%s"
 
-	function __construct(){
+	function __construct($date_array = null){
 		$this->_url_protocol = "http";
 		$this->_url_parts = array(
 			'prefix' => 'ichart.finance.yahoo.com/table.csv',
@@ -20,8 +20,17 @@ class YahooFinance extends FinanceProvider{
 			'end_year' => array('f', 2011),
 			'frequency' => array('g', 'd'),
 			'ticker_symbol' => array('s', '%s'),
-			'suffix' => array('ignore', '.csv'),			
+			'suffix' => array('ignore', '.csv')
 		);
+
+		if($date_array !== null){
+			foreach($date_array as $key => $value){
+				if(isset($this->_url_parts[$key])){
+					$this->_url_parts[$key][1] = $value;
+				}
+			}
+		}
+
 	}
 
 	function fetchStockData($ticker_symbol){

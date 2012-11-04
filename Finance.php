@@ -35,9 +35,12 @@ abstract class FinanceProvider{
 			$stocks[] = $row;
 		}
 		return $stocks;
-	}	
+	}
 }
 
+// I want to take in an array of arrays, and create an object, without losing flexibility.
 class StockData{
-
+	function __construct(array $data){
+		
+	}
 }
