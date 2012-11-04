@@ -9,6 +9,9 @@
 
 /**
 TODO (This list is not prioritized)
+
+ - I want to add a "FundData" class which will take the stocks array in the constructor and behave like a "StockData" object.
+
  - I want to separate the information layer from the display layer
  - I want to add tooltips which show the formulas for each record
  - I want to show stdev & average daily return broken up by stock
@@ -33,6 +36,37 @@ $print_cols = array();
 $print_cols[Util::COL_ADJ_CLOSE] = "Adj Close";
 $print_cols[Util::COL_CUM] = "RoI";
 $print_cols[Util::COL_VALUE] = "Daily Value";
+
+?>
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>Stock Analyzer</title>
+		<style type='text/css'>
+		table{float: left;}
+		form table{float: none;}
+		</style>
+	</head>
+	<body>
+		<div id='input_form'>
+			<form action='?' method='get'>
+				<input type='hidden' name='stockcount' value='<?php echo STOCK_COUNT; ?>' />
+				<table cellpadding='2' cellspacing='2' border='1' id='form_input'>
+					<tbody><?php
+						getInputHeaders();
+						getTickerSymbolInputs();
+						getInvestmentCapitalInputs();
+					?>
+					</tbody>
+				</table>
+				<input type='submit' value='Generate Report' />
+			</form>
+		</div>
+		<hr />
+		<div id='results'><?php if(Util::getGet('stockcount')){generateReport($print_cols);} ?></div>
+	</body>
+</html>
+<?php
 
 function getInputHeaders(){
 	echo "<tr>";
@@ -90,34 +124,26 @@ function generateReport($print_cols){
 	$finance = new YahooFinance(array('start_year' => YEAR, 'end_year' => YEAR));
 	$input = new Input();
 	$input->validate();
-	$stocks = $finance->fetchStocks($input->getSymbols());
-
-	foreach($stocks as $i => $stock){
-		$dayone = $stock[0][Util::COL_ADJ_CLOSE];
-		foreach($stock as $j => $day){
-			$dailycum = $day[Util::COL_ADJ_CLOSE] / $dayone;
-			$stocks[$i][$j][Util::COL_CUM] = $dailycum;
-			$stocks[$i][$j][Util::COL_VALUE] = $dailycum * $input->getCapitals($i);
-		}
-	}
+	$stocks = $finance->fetchStocks($input);
 
 
 	printf("<table cellpadding='2' cellspacing='2' border='1' id='all_results'>\n");
 	printf(getDataTableHeaders($print_cols, $input->getSymbols()));
 	printf("<tbody>\n");
+
 	$yesterdays_roi = false;
 	$daily_deltas = array();
-	foreach($stocks[0] as $index => $row){
-
+	for($index = 0; $index < $stocks[0]->getDateCount(); $index++){
 		printf("<tr>\n");
-		printf("<th class='date'>%s</th>\n", Util::cleanData(Util::COL_DATE, $row[Util::COL_DATE]));
-		$fund_sum = 0;
-		for($i = 0; $i < Util::getGet('stockcount'); $i++){
-			$fund_sum += $stocks[$i][$index][Util::COL_VALUE];
+		printf("<th class='date'>%s</th>\n", Util::cleanData(Util::COL_DATE, $stocks[0]->getDate($index)));
+
+		for($i = 0; $i < $input->getStockCount(); $i++){
 			foreach($print_cols as $col => $name){
-				printf("<td>%s</td>", Util::cleanData($col, $stocks[$i][$index][$col]));
+				printf("<td>%s</td>", Util::cleanData($col, $stocks[$i]->getDataByColumn($index, $col)));
 			}
 		}
+
+		$fund_sum = $finance->getDailyValuation($stocks, $index);
 		$daily_roi = $fund_sum / $input->_total_capital;
 		$yesterdays_roi = ($yesterdays_roi===false) ? $daily_roi : $yesterdays_roi;
 		$daily_delta = $daily_roi - $yesterdays_roi;
@@ -128,14 +154,7 @@ function generateReport($print_cols){
 		echo "</tr>\n";
 		$yesterdays_roi = $daily_roi;
 	}
-	$annual_return = 0;
-	foreach($stocks as $i => $stock){
-		$first = array_shift($stock);
-		$first = $first[Util::COL_CUM];
-		$last = array_pop($stock);
-		$last = $last[Util::COL_CUM];
-		$annual_return += (($last - $first) * $input->_weights[$i]);
-	}
+	$annual_return = $finance->getAnnualReturn($stocks, $input->getWeights());
 	echo "</tbody>\n";			
 	echo "</table>\n";
 	echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
@@ -161,39 +180,3 @@ function generateReport($print_cols){
 	echo "</tbody>\n";
 	echo "</table>\n";
 }
-
-?>
-<!DOCTYPE html>
-<html>
-	<head>
-		<title>Stock Analyzer</title>
-		<style type='text/css'>
-		table{float: left;}
-		form table{float: none;}
-		</style>
-	</head>
-	<body>
-		<div id='input_form'>
-			<form action='?' method='get'>
-				<input type='hidden' name='stockcount' value='<?php echo STOCK_COUNT; ?>' />
-				<table cellpadding='2' cellspacing='2' border='1' id='form_input'>
-					<tbody><?php
-						getInputHeaders();
-						getTickerSymbolInputs();
-						getInvestmentCapitalInputs();
-					?>
-					</tbody>
-				</table>
-				<input type='submit' value='Generate Report' />
-			</form>
-		</div>
-		<hr />
-		<div id='results'><?php if(Util::getGet('stockcount')){generateReport($print_cols);} ?></div>
-	</body>
-</html>
-<?php
-
-
-
-
-

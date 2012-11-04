@@ -101,7 +101,7 @@ class Input{
 		return $this->_capitals;
 	}
 
-	function getWeights($index){
+	function getWeights($index = null){
 		if(is_numeric($index)){
 			return $this->_weights[$index];
 		}
