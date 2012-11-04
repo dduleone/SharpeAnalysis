@@ -36,11 +36,19 @@ abstract class FinanceProvider{
 		}
 		return $stocks;
 	}
+
+	function fetchStocks($ticker_symbols){
+		$stocks = array();
+		foreach($ticker_symbols as $ticker_symbol){
+			$stocks[] = $this->fetchStockData($ticker_symbol);
+		}
+		return $stocks;
+	}
 }
 
 // I want to take in an array of arrays, and create an object, without losing flexibility.
 class StockData{
 	function __construct(array $data){
-		
+
 	}
 }

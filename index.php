@@ -26,8 +26,6 @@ TODO (This list is not prioritized)
 require_once("YahooFinance.php");
 require_once("Util.php");
 
-?><!DOCTYPE html><?php
-
 define("STOCK_COUNT", 4);
 define("YEAR", 2011);
 
@@ -88,105 +86,144 @@ function getDataTableHeaders($print_cols, $symbols){
 	return $buf;
 }
 
+class Input{
+	var $_symbols;
+	var $_capitals;
+	var $_total_capital;
+	var $_stockcount;
+	var $_weights;
+
+	function __construct(){
+		$this->_symbols = Util::getGet('symbol');
+		$this->_capitals = Util::getGet('capital');
+		$this->_stockcount = Util::getGet('stockcount');
+		$this->_total_capital = array_sum($this->_capitals);
+
+		$this->_weights = array();
+		foreach($this->_capitals as $capital){
+			$this->_weights[] = $capital/$this->_total_capital;
+		}
+
+	}
+
+	function getSymbols($index = null){
+		if(is_numeric($index)){
+			return $this->_symbols[$index];
+		}
+		return $this->_symbols;
+	}
+
+	function getCapitals($index = null){
+		if(is_numeric($index)){
+			return $this->_capitals[$index];
+		}		
+		return $this->_capitals;
+	}
+
+	function getWeights($index){
+		if(is_numeric($index)){
+			return $this->_weights[$index];
+		}
+		return $this->_weights;
+	}
+
+	function getStockCount(){
+		return $this->_stockcount;
+	}
+
+	function getSymbolCount(){
+		return count($this->getSymbols());
+	}
+
+	function getCapitalCount(){
+		return count($this->getCapitals());
+	}
+
+	function validate(){
+		if($this->getSymbolCount() != $this->getCapitalCount()) {
+			printf("<h1 class='error'>Error! Number of Stock Symbols (%s) does not match number of Investment Capital Values (%s).</h1>", $this->getSymbolCount(), $this->getCapitalCount());
+		}
+	}
+}
+
 function generateReport($print_cols){
-	$yf = new YahooFinance(array('start_year' => YEAR, 'end_year' => YEAR));
-
-	if(count(Util::getGet('symbol')) != count(Util::getGet('capital'))) {
-		printf("<h1 class='error'>Error! Number of Stock Symbols (%s) does not match number of Investment Capital Values (%s).</h1>", count(Util::getGet('symbol')), count(Util::getGet('capital')));
-	}
-
-	$symbols = Util::getGet('symbol');
-	$capitals = Util::getGet('capital');
-	$total_capital = array_sum($capitals);
-
-
-	/* I could combine these loops since count($capitals) should always == count($symbols) == count($stocks).
-		But the point of the exercise was to understand the process, not write efficient code.
-		And I believe over simplication would detract from the clarity of what's happening.
-		Besides, these arrays are only supposed to be 4 elements long.
-	*/
-	$weights = array();
-	foreach($capitals as $capital){
-		$weights[] = $capital/$total_capital;
-	}
-
-	$stocks = array();
-	foreach($symbols as $ticker_symbol){
-		$stocks[] = $yf->fetchStockData($ticker_symbol);
-	}
+	$finance = new YahooFinance(array('start_year' => YEAR, 'end_year' => YEAR));
+	$input = new Input();
+	$input->validate();
+	$stocks = $finance->fetchStocks($input->getSymbols());
 
 	foreach($stocks as $i => $stock){
 		$dayone = $stock[0][Util::COL_ADJ_CLOSE];
-		$capital = $capitals[$i];
 		foreach($stock as $j => $day){
 			$dailycum = $day[Util::COL_ADJ_CLOSE] / $dayone;
 			$stocks[$i][$j][Util::COL_CUM] = $dailycum;
-			$stocks[$i][$j][Util::COL_VALUE] = $dailycum * $capital;
+			$stocks[$i][$j][Util::COL_VALUE] = $dailycum * $input->getCapitals($i);
 		}
 	}
 
 
 	printf("<table cellpadding='2' cellspacing='2' border='1' id='all_results'>\n");
-	printf(getDataTableHeaders($print_cols, $symbols));
+	printf(getDataTableHeaders($print_cols, $input->getSymbols()));
 	printf("<tbody>\n");
 	$yesterdays_roi = false;
 	$daily_deltas = array();
 	foreach($stocks[0] as $index => $row){
 
-	printf("<tr>\n");
-	printf("<th class='date'>%s</th>\n", Util::cleanData(Util::COL_DATE, $row[Util::COL_DATE]));
-	$fund_sum = 0;
-				for($i = 0; $i < Util::getGet('stockcount'); $i++){
-					$fund_sum += $stocks[$i][$index][Util::COL_VALUE];
-					foreach($print_cols as $col => $name){
-						printf("<td>%s</td>", Util::cleanData($col, $stocks[$i][$index][$col]));
-					}
-				}
-				$daily_roi = $fund_sum / $total_capital;
-				$yesterdays_roi = ($yesterdays_roi===false) ? $daily_roi : $yesterdays_roi;
-				$daily_delta = $daily_roi - $yesterdays_roi;
-				$daily_deltas[] = $daily_delta;
-				printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_SUM, $fund_sum));
-				printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_CUM, $daily_roi));
-				printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_DAILY, $daily_delta));
-				echo "</tr>\n";
-				$yesterdays_roi = $daily_roi;
+		printf("<tr>\n");
+		printf("<th class='date'>%s</th>\n", Util::cleanData(Util::COL_DATE, $row[Util::COL_DATE]));
+		$fund_sum = 0;
+		for($i = 0; $i < Util::getGet('stockcount'); $i++){
+			$fund_sum += $stocks[$i][$index][Util::COL_VALUE];
+			foreach($print_cols as $col => $name){
+				printf("<td>%s</td>", Util::cleanData($col, $stocks[$i][$index][$col]));
 			}
-			$annual_return = 0;
-			foreach($stocks as $i => $stock){
-				$first = array_shift($stock);
-				$first = $first[Util::COL_CUM];
-				$last = array_pop($stock);
-				$last = $last[Util::COL_CUM];
-				$annual_return += (($last - $first) * $weights[$i]);
-			}
-			echo "</tbody>\n";			
-			echo "</table>\n";
-			echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
-			echo "<thead><tr><th>Stocks</th><th>Alloc</th><th>Capital</th></tr></thead>\n";
-			echo "<tbody>\n";
-			printf("<tr><th>Start</th><td>1</td><td>%s</td></tr>", Util::prettyMoney($total_capital));
-			foreach($symbols as $i => $symbol){
-				printf("<tr><th>%s</th><td>%s</td><td>%s</td></tr>\n", strtoupper($symbol), $capitals[$i] / $total_capital, Util::prettyMoney($capitals[$i]));
-			}
-			echo "</tbody>\n";
-			echo "</table>\n";
+		}
+		$daily_roi = $fund_sum / $input->_total_capital;
+		$yesterdays_roi = ($yesterdays_roi===false) ? $daily_roi : $yesterdays_roi;
+		$daily_delta = $daily_roi - $yesterdays_roi;
+		$daily_deltas[] = $daily_delta;
+		printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_SUM, $fund_sum));
+		printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_CUM, $daily_roi));
+		printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_DAILY, $daily_delta));
+		echo "</tr>\n";
+		$yesterdays_roi = $daily_roi;
+	}
+	$annual_return = 0;
+	foreach($stocks as $i => $stock){
+		$first = array_shift($stock);
+		$first = $first[Util::COL_CUM];
+		$last = array_pop($stock);
+		$last = $last[Util::COL_CUM];
+		$annual_return += (($last - $first) * $input->_weights[$i]);
+	}
+	echo "</tbody>\n";			
+	echo "</table>\n";
+	echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
+	echo "<thead><tr><th>Stocks</th><th>Alloc</th><th>Capital</th></tr></thead>\n";
+	echo "<tbody>\n";
+	printf("<tr><th>Start</th><td>1</td><td>%s</td></tr>", Util::prettyMoney($input->_total_capital));
+	foreach($input->getSymbols() as $i => $symbol){
+		printf("<tr><th>%s</th><td>%s</td><td>%s</td></tr>\n", strtoupper($symbol), $input->getCapitals($i) / $input->_total_capital, Util::prettyMoney($input->getCapitals($i)));
+	}
+	echo "</tbody>\n";
+	echo "</table>\n";
 
-			$average_daily_return = array_sum($daily_deltas) / count($daily_deltas);
-			$std_dev = Util::standard_deviation($daily_deltas);
-			$sharpe = sqrt(count($daily_deltas)) * $average_daily_return / $std_dev;
-			echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
-			echo "<thead><tr><th>Performance</th><th>Fund</th></tr></thead>\n";
-			echo "<tbody>\n";
-			printf("<tr><td>Annual Return</td><td>%s</td></tr>\n", Util::prettyPercent($annual_return));
-			printf("<tr><td>Average Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($average_daily_return, 3));
-			printf("<tr><td>STDEV Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($std_dev, 3));
-			printf("<tr><td>Sharpe Ratio</td><td>%s</td></tr>\n", round($sharpe, 3));
-			echo "</tbody>\n";
-			echo "</table>\n";	
+	$average_daily_return = array_sum($daily_deltas) / count($daily_deltas);
+	$std_dev = Util::standard_deviation($daily_deltas);
+	$sharpe = sqrt(count($daily_deltas)) * $average_daily_return / $std_dev;
+	echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
+	echo "<thead><tr><th>Performance</th><th>Fund</th></tr></thead>\n";
+	echo "<tbody>\n";
+	printf("<tr><td>Annual Return</td><td>%s</td></tr>\n", Util::prettyPercent($annual_return));
+	printf("<tr><td>Average Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($average_daily_return, 3));
+	printf("<tr><td>STDEV Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($std_dev, 3));
+	printf("<tr><td>Sharpe Ratio</td><td>%s</td></tr>\n", round($sharpe, 3));
+	echo "</tbody>\n";
+	echo "</table>\n";
 }
 
 ?>
+<!DOCTYPE html>
 <html>
 	<head>
 		<title>Stock Analyzer</title>
