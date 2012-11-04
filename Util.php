@@ -84,7 +84,6 @@ class Input{
 		foreach($this->_capitals as $capital){
 			$this->_weights[] = $capital/$this->_total_capital;
 		}
-
 	}
 
 	function getSymbols($index = null){
@@ -118,6 +117,42 @@ class Input{
 
 	function getCapitalCount(){
 		return count($this->getCapitals());
+	}
+
+	function printInputHeaders($count){
+		printf("  <thead>\n");
+		printf("    <tr>\n");
+		printf("      <th>&nbsp;</th>\n");
+		for($i = 0; $i < $count; $i++){
+			printf("      <th>Stock %s</th>\n", $i+1);
+		}
+		printf("    </tr>\n");
+		printf("  </thead>\n");
+	}
+
+	function getTickerSymbolInputs($count){
+		printf("    <tr>\n");
+		printf("      <td class='th_col'>Enter Symbol:</td>\n");
+		for($i = 0; $i < $count; $i++){
+			printf("      <td><input type='text' name='symbol[]' class='symbol' value='%s' /></td>\n", $this->getSymbols($i));
+		}
+		printf("    </tr>\n");
+	}
+
+	function getInvestmentCapitalInputs($count){
+		printf("    <tr>\n");
+		printf("      <td class='th_col'>Enter Investment:</td>\n");
+		for($i = 0; $i < $count; $i++){
+			printf("      <td><input type='text' name='capital[]' class='capital' value='%s' /></td>\n", $this->getCapitals($i));
+		}
+		printf("    </tr>\n");
+	}
+
+	function printInputBody($count){
+		printf("  <tbody>\n");
+		$this->getTickerSymbolInputs($count);
+		$this->getInvestmentCapitalInputs($count);
+		printf("  </tbody>\n");
 	}
 
 	function validate(){
