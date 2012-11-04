@@ -66,3 +66,63 @@ class Util{
 	    return (float) sqrt($fVariance);
 	}
 }
+
+class Input{
+	var $_symbols;
+	var $_capitals;
+	var $_total_capital;
+	var $_stockcount;
+	var $_weights;
+
+	function __construct(){
+		$this->_symbols = Util::getGet('symbol');
+		$this->_capitals = Util::getGet('capital');
+		$this->_stockcount = Util::getGet('stockcount');
+		$this->_total_capital = array_sum($this->_capitals);
+
+		$this->_weights = array();
+		foreach($this->_capitals as $capital){
+			$this->_weights[] = $capital/$this->_total_capital;
+		}
+
+	}
+
+	function getSymbols($index = null){
+		if(is_numeric($index)){
+			return $this->_symbols[$index];
+		}
+		return $this->_symbols;
+	}
+
+	function getCapitals($index = null){
+		if(is_numeric($index)){
+			return $this->_capitals[$index];
+		}		
+		return $this->_capitals;
+	}
+
+	function getWeights($index){
+		if(is_numeric($index)){
+			return $this->_weights[$index];
+		}
+		return $this->_weights;
+	}
+
+	function getStockCount(){
+		return $this->_stockcount;
+	}
+
+	function getSymbolCount(){
+		return count($this->getSymbols());
+	}
+
+	function getCapitalCount(){
+		return count($this->getCapitals());
+	}
+
+	function validate(){
+		if($this->getSymbolCount() != $this->getCapitalCount()) {
+			printf("<h1 class='error'>Error! Number of Stock Symbols (%s) does not match number of Investment Capital Values (%s).</h1>", $this->getSymbolCount(), $this->getCapitalCount());
+		}
+	}
+}
