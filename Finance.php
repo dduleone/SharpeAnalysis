@@ -44,24 +44,6 @@ abstract class FinanceProvider{
 		}
 		return $stocks;
 	}
-
-	function getDailyValuation($stocks, $day){
-		$sum = 0;
-		foreach($stocks as $stock){
-			$sum += $stock->getValuation($day);
-		}
-		return $sum;
-	}
-
-	function getAnnualReturn($stocks, $distribution){
-		$sum = 0;
-		foreach($stocks as $i => $stock){
-			$first = $stock->getCumROI(0);
-			$last = $stock->getCumROI($stock->getDateCount()-1);
-			$sum += (($last - $first) * $distribution[$i]);
-		}
-		return $sum;
-	}
 }
 
 // I want to take in an array of arrays, and create an object, without losing flexibility.
@@ -130,5 +112,77 @@ class StockData{
 
 	function getValuation($day){
 		return $this->_raw_data[$day][Util::COL_VALUE];
+	}
+}
+
+class FundData{
+	var $_stocks;
+	var $_input;
+
+	var $_daily_sums;
+	var $_daily_rois;
+	var $_daily_deltas;
+	function __construct($stocks, $input){
+		$this->_stocks = $stocks;
+		$this->_input = $input;
+
+		$this->_daily_sums = array();
+		$this->_daily_rois = array();
+		$this->_daily_deltas = array();
+
+		$yesterdays_roi = false;
+		for($i = 0; $i < $this->_stocks[0]->getDateCount(); $i++){
+			$daily_sum = $this->getDailyValuation($i);
+			$daily_roi = $daily_sum / $this->_input->_total_capital;
+			$yesterdays_roi = ($yesterdays_roi===false) ? $daily_roi : $yesterdays_roi;
+			$daily_delta = $daily_roi - $yesterdays_roi;
+			$yesterdays_roi = $daily_roi;
+
+			$this->_daily_sums[] = $daily_sum;
+			$this->_daily_rois[] = $daily_roi;
+			$this->_daily_deltas[] = $daily_delta;			
+		}
+	}
+
+	function getDailySum($day){
+		return $this->_daily_sums[$day];
+	}
+
+	function getDailyROI($day){
+		return $this->_daily_rois[$day];
+	}
+
+	function getDailyDelta($day){
+		return $this->_daily_deltas[$day];
+	}
+
+	function getDailyValuation($day){
+		$sum = 0;
+		foreach($this->_stocks as $stock){
+			$sum += $stock->getValuation($day);
+		}
+		return $sum;
+	}
+
+	function getAnnualReturn(){
+		$sum = 0;
+		foreach($this->_stocks as $i => $stock){
+			$first = $stock->getCumROI(0);
+			$last = $stock->getCumROI($stock->getDateCount()-1);
+			$sum += ($last - $first) * $this->_input->getWeights($i);
+		}
+		return $sum;
+	}
+
+	function getAverageDailyReturn(){
+		return array_sum($this->_daily_deltas) / count($this->_daily_deltas);
+	}
+
+	function getStdDev(){
+		return Util::standard_deviation($this->_daily_deltas);
+	}
+
+	function getSharpe(){
+		return sqrt(count($this->_daily_deltas)) * $this->getAverageDailyReturn() / $this->getStdDev();
 	}
 }

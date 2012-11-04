@@ -10,8 +10,6 @@
 /**
 TODO (This list is not prioritized)
 
- - I want to add a "FundData" class which will take the stocks array in the constructor and behave like a "StockData" object.
-
  - I want to separate the information layer from the display layer
  - I want to add tooltips which show the formulas for each record
  - I want to show stdev & average daily return broken up by stock
@@ -125,36 +123,27 @@ function generateReport($print_cols){
 	$input = new Input();
 	$input->validate();
 	$stocks = $finance->fetchStocks($input);
-
+	$fund = new FundData($stocks, $input);
 
 	printf("<table cellpadding='2' cellspacing='2' border='1' id='all_results'>\n");
 	printf(getDataTableHeaders($print_cols, $input->getSymbols()));
 	printf("<tbody>\n");
 
-	$yesterdays_roi = false;
-	$daily_deltas = array();
 	for($index = 0; $index < $stocks[0]->getDateCount(); $index++){
 		printf("<tr>\n");
 		printf("<th class='date'>%s</th>\n", Util::cleanData(Util::COL_DATE, $stocks[0]->getDate($index)));
-
 		for($i = 0; $i < $input->getStockCount(); $i++){
 			foreach($print_cols as $col => $name){
 				printf("<td>%s</td>", Util::cleanData($col, $stocks[$i]->getDataByColumn($index, $col)));
 			}
 		}
-
-		$fund_sum = $finance->getDailyValuation($stocks, $index);
-		$daily_roi = $fund_sum / $input->_total_capital;
-		$yesterdays_roi = ($yesterdays_roi===false) ? $daily_roi : $yesterdays_roi;
-		$daily_delta = $daily_roi - $yesterdays_roi;
-		$daily_deltas[] = $daily_delta;
-		printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_SUM, $fund_sum));
-		printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_CUM, $daily_roi));
-		printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_DAILY, $daily_delta));
+		printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_SUM, $fund->getDailySum($index)));
+		printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_CUM, $fund->getDailyROI($index)));
+		printf("<td>%s</td>", Util::cleanData(Util::COL_FUND_DAILY, $fund->getDailyDelta($index)));
 		echo "</tr>\n";
-		$yesterdays_roi = $daily_roi;
+
 	}
-	$annual_return = $finance->getAnnualReturn($stocks, $input->getWeights());
+
 	echo "</tbody>\n";			
 	echo "</table>\n";
 	echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
@@ -167,16 +156,13 @@ function generateReport($print_cols){
 	echo "</tbody>\n";
 	echo "</table>\n";
 
-	$average_daily_return = array_sum($daily_deltas) / count($daily_deltas);
-	$std_dev = Util::standard_deviation($daily_deltas);
-	$sharpe = sqrt(count($daily_deltas)) * $average_daily_return / $std_dev;
 	echo "<table cellpadding='2' cellspacing='2' border='1'>\n";
 	echo "<thead><tr><th>Performance</th><th>Fund</th></tr></thead>\n";
 	echo "<tbody>\n";
-	printf("<tr><td>Annual Return</td><td>%s</td></tr>\n", Util::prettyPercent($annual_return));
-	printf("<tr><td>Average Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($average_daily_return, 3));
-	printf("<tr><td>STDEV Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($std_dev, 3));
-	printf("<tr><td>Sharpe Ratio</td><td>%s</td></tr>\n", round($sharpe, 3));
+	printf("<tr><td>Annual Return</td><td>%s</td></tr>\n", Util::prettyPercent($fund->getAnnualReturn()));
+	printf("<tr><td>Average Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($fund->getAverageDailyReturn(), 3));
+	printf("<tr><td>STDEV Daily Return</td><td>%s</td></tr>\n", Util::prettyPercent($fund->getStdDev(), 3));
+	printf("<tr><td>Sharpe Ratio</td><td>%s</td></tr>\n", round($fund->getSharpe(), 3));
 	echo "</tbody>\n";
 	echo "</table>\n";
 }
