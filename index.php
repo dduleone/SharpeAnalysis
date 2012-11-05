@@ -51,6 +51,7 @@ $fund = new FundData($stocks, $input);
 	<head>
 		<title>Stock Analyzer</title>
 		<link rel='stylesheet' type='text/css' href='sharpe.css' />
+		<script type='text/javascript' src='render_sharpe.js'></script>
 	</head>
 	<body>
 		<div id='input_form'>
@@ -65,6 +66,8 @@ $fund = new FundData($stocks, $input);
 		</div>
 		<hr />
 		<div id='results'><?php if(Util::getGet('stockcount')){$fund->showReport($print_cols);} ?></div>
+		<hr />
+		<!-- <div id='json'><?php if(Util::getGet('stockcount')){$fund->toJSON($print_cols);} ?></div> -->
 	</body>
 </html>
 <?php

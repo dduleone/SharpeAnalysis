@@ -256,4 +256,58 @@ class FundData{
 		printf("  </tbody>\n");
 		printf("</table>\n");
 	}
+
+	function toJSON($print_cols){
+		$input = $this->_input;
+		$stocks = $this->_stocks;
+
+		$buf = array();
+
+		$buf['symbols'] = array();		
+		foreach($input->getSymbols() as $symbol){
+			$buf['symbols'][] .= strtoupper($symbol);
+		}
+		$buf['year'] = YEAR;
+		$buf['stock_fields'] = array();
+		foreach($print_cols as $name){
+			$buf['stock_fields'][] = $name;
+		}
+		$buf['fund_fields'] = array("Fund Value", "Fund ROI", "Fund Delta");
+		$buf['dates'] = array();
+
+		$buf['stock_data'] = array();
+		for($index = 0; $index < $stocks[0]->getDateCount(); $index++){
+			$buf['dates'][] = Util::cleanData(Util::COL_DATE, $stocks[0]->getDate($index));
+			for($i = 0; $i < $input->getStockCount(); $i++){
+				$stock = array();
+				foreach($print_cols as $col => $name){
+					$stock[] = Util::cleanData($col, $stocks[$i]->getDataByColumn($index, $col));
+				}
+				$buf['stock_data'][$i][] = $stock;
+			}
+
+			$buf['fund_data'] = array();
+			$buf['fund_data'][] = Util::cleanData(Util::COL_FUND_SUM, $this->getDailySum($index));
+			$buf['fund_data'][] = Util::cleanData(Util::COL_FUND_CUM, $this->getDailyROI($index));
+			$buf['fund_data'][] = Util::cleanData(Util::COL_FUND_DAILY, $this->getDailyDelta($index));
+
+		}
+
+		$buf['aggregate_fields'] = array("Stocks", "Alloc", "Capital");
+		$buf['aggregate_data'] = array();
+		$buf['aggregate_data'][] = array("Start", "1", Util::prettyMoney($input->_total_capital));
+		foreach($input->getSymbols() as $i => $symbol){
+			$alloc = $input->getCapitals($i) / $input->_total_capital;
+			$buf['aggregate_data'][] = array(strtoupper($symbol), $alloc, Util::prettyMoney($input->getCapitals($i)));
+		}
+
+		$buf['analysis_fields'] = array("Performance", "Fund");
+		$buf['analysis_data'] = array();
+		$buf['analysis_data'][] = array("Annual Return", Util::prettyPercent($this->getAnnualReturn()));
+		$buf['analysis_data'][] = array("Average Daily", Util::prettyPercent($this->getAverageDailyReturn(), 3));
+		$buf['analysis_data'][] = array("StdDev Daily Return", Util::prettyPercent($this->getStdDev(), 3));
+		$buf['analysis_data'][] = array("Sharpe Ratio", round($this->getSharpe(), 3));
+
+		echo json_encode($buf);
+	}
 }
